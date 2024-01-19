@@ -745,3 +745,92 @@ sqldf(" SELECT NUMBER, NTILE(4) OVER(ORDER BY NUMBER ASC) AS Quartile
         FROM Person ")
 
 quantile(Person$Number)
+
+
+
+# AULA 06 - FUNCOES DE JANELA ----
+
+
+# Soma acumulada
+
+sqldf(" SELECT `Sepal.Length`, 
+        SUM(`Sepal.Length`) OVER(ORDER BY `Sepal.Length` ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS 'Soma acumulada'
+        FROM dados
+        ORDER BY `Sepal.Length` 
+        LIMIT 10") 
+
+dados %>%  arrange(`Sepal.Length`) %>%  transmute(`Sepal.Length`,
+           SA = cumsum(`Sepal.Length`))  %>% head(10)
+
+
+# Vetorizacao de uma informacao agrupada
+
+sqldf(" SELECT Species, AVG(`Sepal.Length`) AS 'Media' -- AGRUPA
+        FROM dados
+        GROUP BY Species")
+
+dados %>% group_by(Species) %>% summarise(Media = mean(`Sepal.Length`))
+
+
+sqldf(" SELECT Species, AVG(`Sepal.Length`) OVER() AS 'Media' -- REPETE A INFORMACAO
+        FROM dados
+        ORDER BY Species")
+
+dados %>% transmute(Species, Media = mean(`Sepal.Length`))
+
+sqldf(" SELECT Species, AVG(`Sepal.Length`) OVER(PARTITION BY Species) AS 'Media'
+        FROM dados -- REPETE A INFORMACAO POR GRUPO
+        ORDER BY Species")
+
+valores = dados %>% group_by(Species) %>% summarise(Media = mean(`Sepal.Length`))
+
+dados %>% transmute(Species, Media = case_when(Species == 'setosa' ~ as.numeric(valores[1,2]),
+                                               Species == 'versicolor' ~ as.numeric(valores[2,2]),
+                                               .default = as.numeric(valores[3,2])))
+
+
+
+# AULA 07 - CASE WHEN ----
+
+sqldf(" SELECT * 
+        FROM dados ")
+
+sqldf(" SELECT Species, `Sepal.Length`,
+        CASE WHEN Species = 'setosa' THEN  'Classe A'
+            ELSE 'Classe B'
+            END AS Classificacao
+        FROM dados ")
+
+dados %>% transmute(Species, `Sepal.Length`,
+                    Classificacao = case_when(Species == 'setosa' ~ 'Classe A',
+                                              .default = 'Classe B'))
+
+
+sqldf(" SELECT Species, `Sepal.Length`,
+        CASE WHEN `Sepal.Length` BETWEEN 4 AND 5  THEN  'Classe A'
+             WHEN `Sepal.Length` BETWEEN 5 AND 6  THEN  'Classe B'
+             ELSE 'Classe C'
+             END AS Classificacao
+        FROM dados ")
+
+dados %>% transmute(Species, `Sepal.Length`,
+                    Classificacao = case_when(between(`Sepal.Length`,4,5) == T ~ 'Classe A',
+                                              between(`Sepal.Length`,5,6) == T ~ 'Classe B',
+                                              .default = 'Classe C'))
+
+
+sqldf(" SELECT Species, `Sepal.Length`,
+        CASE WHEN `Sepal.Length` <= 5  THEN  (`Sepal.Length` + 5)
+             WHEN `Sepal.Length` <= 6  THEN  (`Sepal.Length` + 3)
+             ELSE (`Sepal.Length` + 1)
+             END AS Classificacao
+        FROM dados
+        ORDER BY `Sepal.Length`")
+
+dados %>% transmute(Species, `Sepal.Length`,
+                    Classificacao = case_when(`Sepal.Length` <= 5 ~  (`Sepal.Length` + 5),
+                                              `Sepal.Length` <= 6 ~  (`Sepal.Length` + 3),
+                                              .default = (`Sepal.Length` + 1))) %>% 
+  arrange(`Sepal.Length`)
+
+
